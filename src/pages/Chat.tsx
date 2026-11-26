@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useApp } from '../state';
 import { GlossaryText, PinyinLine } from '../components';
 import { liveTutorText, noteIsEmpty, parseTutor, tutorSystemPrompt } from '../lib/tutor';
@@ -159,7 +159,21 @@ export function Chat() {
       )}
       <form className="composer" onSubmit={(event) => void send(event)}>
         <label className="sr-only" htmlFor="chat-input">Message</label>
-        <textarea id="chat-input" rows={3} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="试着用中文说说今天。" disabled={busy} />
+        <textarea
+          id="chat-input"
+          rows={3}
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+          placeholder="试着用中文说说今天。"
+          disabled={busy}
+        />
+        <p className="muted tiny">Enter adds a line. Ctrl+Enter or ⌘+Enter sends.</p>
         <div className="row">
           <button type="submit" className="btn btn-primary" disabled={busy || !draft.trim()}>{busy ? 'Waiting…' : 'Send'}</button>
           {phase !== 'idle' && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { failureMessage, readChatStream } from './ollama';
+import { chooseReply, failureMessage, readChatStream } from './ollama';
 
 describe('Ollama errors', () => {
   const base = { url: 'http://localhost:11434', origin: 'https://413x45h4w.github.io', model: 'qwen3-abliterated' };
@@ -27,6 +27,32 @@ describe('Ollama errors', () => {
     });
     expect(message).toContain('qwen2.5:7b');
     expect(message).not.toMatch(/OLLAMA_ORIGINS/);
+  });
+});
+
+describe('thinking fallback', () => {
+  it('uses message.thinking when content is empty and strips think tags', () => {
+    const thinking = '<think>draft</think>ZH: 你好，我叫Alex。\nPY: nǐ hǎo\nEN: Hi, I am Alex.\nNOTE: none';
+    expect(chooseReply('', thinking)).toBe('ZH: 你好，我叫Alex。\nPY: nǐ hǎo\nEN: Hi, I am Alex.\nNOTE: none');
+    expect(chooseReply('ZH: real', thinking)).toBe('ZH: real');
+  });
+
+  it('accumulates thinking chunks when no content arrives', async () => {
+    const encoder = new TextEncoder();
+    const pieces = [
+      '{"message":{"content":"","thinking":"ZH: 你"}}\n',
+      '{"message":{"thinking":"好"},"done":true,"done_reason":"stop"}\n',
+    ];
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const piece of pieces) controller.enqueue(encoder.encode(piece));
+        controller.close();
+      },
+    });
+    const seen: string[] = [];
+    const full = await readChatStream(body, (text) => seen.push(text));
+    expect(full).toBe('ZH: 你好');
+    expect(seen).toEqual(['ZH: 你', 'ZH: 你好']);
   });
 });
 

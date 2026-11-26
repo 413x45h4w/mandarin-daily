@@ -1,3 +1,5 @@
+import { stripThink } from './tutor';
+
 export const KEEP_ALIVE = '30m';
 export const CHAT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -55,15 +57,23 @@ export function isAbortError(err: unknown): boolean {
 }
 
 export interface ChatChunk {
-  message?: { content?: string };
+  message?: { content?: string; thinking?: string };
+  thinking?: string;
   error?: string;
+}
+
+/** Prefer spoken content. Thinking-capable models sometimes put the whole answer in `thinking` and leave `content` empty. */
+export function chooseReply(content: string, thinking: string): string {
+  const body = content.trim() ? content : thinking;
+  return stripThink(body).trim();
 }
 
 export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: (full: string) => void): Promise<string> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let full = '';
+  let content = '';
+  let thinking = '';
   const take = (line: string) => {
     const trimmed = line.trim();
     if (!trimmed) return;
@@ -74,10 +84,10 @@ export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: 
       throw new Error(trimmed.slice(0, 180));
     }
     if (chunk.error) throw new Error(chunk.error);
-    const piece = chunk.message?.content ?? '';
-    if (!piece) return;
-    full += piece;
-    onDelta(full);
+    content += chunk.message?.content ?? '';
+    thinking += chunk.message?.thinking ?? chunk.thinking ?? '';
+    const reply = chooseReply(content, thinking);
+    if (reply) onDelta(reply);
   };
   while (true) {
     const { done, value } = await reader.read();
@@ -89,7 +99,7 @@ export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: 
   }
   buffer += decoder.decode();
   if (buffer.trim()) take(buffer);
-  return full.trim();
+  return chooseReply(content, thinking);
 }
 
 async function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
@@ -131,7 +141,7 @@ export async function warmModel(url: string, model: string, signal: AbortSignal)
     const res = await fetch(`${ollamaBase(url)}/api/generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, keep_alive: KEEP_ALIVE, stream: false }),
+      body: JSON.stringify({ model, keep_alive: KEEP_ALIVE, stream: false, think: false }),
       signal,
     });
     if (res.status === 404) return 'missing';
@@ -169,7 +179,7 @@ export async function streamChat(options: {
       res = await fetch(`${base}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, stream: true, keep_alive: KEEP_ALIVE }),
+        body: JSON.stringify({ model, messages, stream: true, keep_alive: KEEP_ALIVE, think: false }),
         signal: ctrl.signal,
       });
     } catch (err) {
@@ -187,8 +197,8 @@ export async function streamChat(options: {
       throw new OllamaError('http', failureMessage({ kind: 'http', url: base, origin, model, status: res.status, detail, models }));
     }
     if (!res.body) {
-      const data = (await res.json()) as { message?: { content?: string } };
-      const content = data.message?.content?.trim() ?? '';
+      const data = (await res.json()) as ChatChunk;
+      const content = chooseReply(data.message?.content ?? '', data.message?.thinking ?? data.thinking ?? '');
       if (!content) throw new OllamaError('empty', failureMessage({ kind: 'empty', url: base, origin, model }));
       onDelta?.(content);
       return content;
