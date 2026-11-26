@@ -1,0 +1,13 @@
+hanzi-writer
+Copyright (c) David Chanin
+https://github.com/chanind/hanzi-writer
+MIT License
+
+Stroke graphics are from hanzi-writer-data, which packages data from
+Make Me a Hanzi (https://github.com/skishore/makemeahanzi). Those outlines
+derive from fonts released under the Arphic Public License. See
+https://github.com/skishore/makemeahanzi/blob/master/LICENSE.txt
+
+Mandarin Daily bundles stroke data for characters used in HSK 1–2 and
+loads other characters from jsDelivr (hanzi-writer-data@2.0.1), cached by
+the service worker after the first fetch.
