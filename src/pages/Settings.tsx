@@ -55,15 +55,18 @@ export function Settings() {
       <fieldset className="card stack">
         <legend>Study</legend>
         <label className="field">Syllabus
-          <select value={settings.track} onChange={(event) => updateSettings({ track: event.target.value as Track })}>
+          <select value={settings.track} onChange={(event) => {
+            const track = event.target.value as Track;
+            updateSettings({ track, level: track === 'classic' ? Math.min(settings.level, 6) : settings.level });
+          }}>
             <option value="classic">HSK 2.0</option>
             <option value="hsk3">HSK 3.0</option>
           </select>
         </label>
         <label className="field">Level
           <select value={settings.level} onChange={(event) => updateSettings({ level: Number(event.target.value) })}>
-            {[1, 2, 3, 4, 5, 6, 7].filter((level) => settings.track === 'hsk3' || level < 7).map((level) => (
-              <option key={level} value={level}>{level === 7 ? 'Bands 7–9' : `Level ${level}`}</option>
+            {Array.from({ length: settings.track === 'hsk3' ? 9 : 6 }, (_, index) => index + 1).map((level) => (
+              <option key={level} value={level}>{settings.track === 'hsk3' ? `Band ${level}` : `Level ${level}`}</option>
             ))}
           </select>
         </label>
@@ -75,7 +78,8 @@ export function Settings() {
           </select>
         </label>
         <p className="muted tiny">Changing level changes which new words appear. Cards you already have stay in the deck.</p>
-        <Link to="/welcome">Retake placement</Link>
+        <Link className="btn" to="/level-test">Level test</Link>
+        <p className="muted tiny">Vocabulary, reading, grammar, and listening. The test moves up or down as you answer. Applying a result sets your level. Earlier results stay on this device.</p>
       </fieldset>
       <fieldset className="card stack">
         <legend>Audio</legend>

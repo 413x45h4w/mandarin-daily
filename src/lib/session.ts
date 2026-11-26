@@ -1,3 +1,5 @@
+import type { GrammarPoint } from '../data/grammar';
+import { grammarLevel } from '../data/grammar';
 import type { Passage, Sentence, StoredCard, Track, Word } from '../types';
 import { hashString } from './pinyin';
 import { choosePassage } from './readings';
@@ -13,7 +15,8 @@ export type Exercise =
   | { kind: 'speak'; wordId: string; sentenceId?: string }
   | { kind: 'build'; sentenceId: string; wordId?: string }
   | { kind: 'write'; wordId: string; char: string }
-  | { kind: 'read'; passageId: string };
+  | { kind: 'read'; passageId: string }
+  | { kind: 'grammar'; pointId: string; quizIndex: number };
 
 export interface SessionInput {
   track: Track;
@@ -28,6 +31,8 @@ export interface SessionInput {
   dayKey: string;
   seenPassageIds?: string[];
   focusWords?: string[];
+  grammar?: GrammarPoint[];
+  grammarDoneIds?: string[];
 }
 
 const KIND_ORDER = ['tone', 'flash-en', 'listen', 'speak', 'build', 'write', 'dictate', 'tone-pair'] as const;
@@ -113,7 +118,23 @@ function buildDaily(input: SessionInput): Exercise[] {
     salt: dayKey,
   });
   if (passage) push({ kind: 'read', passageId: passage.id });
+  const grammarPoint = pickGrammar(input.grammar ?? [], track, level, input.grammarDoneIds ?? [], dayKey);
+  if (grammarPoint) {
+    push({ kind: 'grammar', pointId: grammarPoint.id, quizIndex: hashString(`${dayKey}|${grammarPoint.id}`) % grammarPoint.quiz.length });
+  }
   return exercises;
+}
+
+function pickGrammar(points: GrammarPoint[], track: Track, level: number, doneIds: string[], salt: string): GrammarPoint | null {
+  const done = new Set(doneIds);
+  const open = points.filter((point) => {
+    const pointLevel = grammarLevel(point, track);
+    return pointLevel > 0 && pointLevel <= level && !done.has(point.id) && point.quiz.length > 0;
+  });
+  const exact = open.filter((point) => grammarLevel(point, track) === level);
+  const list = exact.length ? exact : open;
+  if (!list.length) return null;
+  return list[hashString(`${salt}|grammar`) % list.length];
 }
 
 function buildWeak(input: SessionInput): Exercise[] {
@@ -245,6 +266,7 @@ function exerciseKey(exercise: Exercise): string {
   if (exercise.kind === 'listen') return `listen:${exercise.sentenceId}`;
   if (exercise.kind === 'build') return `build:${exercise.sentenceId}`;
   if (exercise.kind === 'read') return `read:${exercise.passageId}`;
+  if (exercise.kind === 'grammar') return `grammar:${exercise.pointId}:${exercise.quizIndex}`;
   if (exercise.kind === 'speak') return `speak:${exercise.wordId}:${exercise.sentenceId ?? ''}`;
   if (exercise.kind === 'write') return `write:${exercise.wordId}:${exercise.char}`;
   if (exercise.kind === 'dictate') return `dictate:${exercise.wordId}`;
@@ -261,4 +283,5 @@ export const EXERCISE_LABEL: Record<string, string> = {
   build: 'Sentences',
   write: 'Writing',
   read: 'Reading',
+  grammar: 'Grammar',
 };

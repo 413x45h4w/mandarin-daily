@@ -8,6 +8,7 @@ import { canRecognizeSpeech, speak, speechRecognitionCtor, stopSpeaking } from '
 import { probeOllama } from '../lib/ollama';
 import { generateFreshPassage } from '../lib/readings';
 import { loadCharData } from '../lib/strokes';
+import type { GrammarPoint } from '../data/grammar';
 import type { Passage, Sentence, Word } from '../types';
 import { useApp } from '../state';
 import { GlossaryText, PinyinLine, SpeakButton } from '../components';
@@ -763,10 +764,38 @@ export function ReadDrill({ passage, onDone }: { passage: Passage; onDone: (resu
             className="btn btn-primary"
             onClick={() => onDone({ kind: 'read', correct, source: 'objective' })}
           >
-            Finish reading
-          </button>
+          Finish reading
+        </button>
         </>
       )}
     </article>
+  );
+}
+
+export function GrammarDrill({ point, quizIndex, onDone }: { point: GrammarPoint; quizIndex: number; onDone: (result: DrillResult) => void }) {
+  const quiz = point.quiz[quizIndex % point.quiz.length];
+  const [picked, setPicked] = useState<number | null>(null);
+  const correct = picked === quiz.answer;
+
+  return (
+    <div className="drill stack">
+      <p className="eyebrow">Grammar · {point.title}</p>
+      <h1 className="hanzi" lang="zh-CN">{quiz.prompt}</h1>
+      <div className="stack">
+        {quiz.options.map((option, index) => {
+          const state = picked == null ? '' : index === quiz.answer ? 'correct' : index === picked ? 'wrong' : '';
+          return (
+            <button key={option} type="button" className={`choice ${state}`} disabled={picked != null} onClick={() => setPicked(index)}>
+              <span lang="zh-CN">{option}</span>
+            </button>
+          );
+        })}
+      </div>
+      {picked != null && (
+        <button type="button" className="btn btn-primary" onClick={() => onDone({ kind: 'grammar', correct, source: 'objective' })}>
+          Continue
+        </button>
+      )}
+    </div>
   );
 }

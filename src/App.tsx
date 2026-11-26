@@ -9,6 +9,8 @@ import { Settings } from './pages/Settings';
 import { About } from './pages/About';
 import { Onboarding } from './pages/Onboarding';
 import { Practice } from './pages/Practice';
+import { GrammarHome, GrammarLesson } from './pages/Grammar';
+import { LevelTest } from './pages/LevelTest';
 
 function Gate() {
   const { ready, error, settings } = useApp();
@@ -25,8 +27,16 @@ function Welcome() {
   return <Onboarding />;
 }
 
+function LevelRoute() {
+  const { ready, error } = useApp();
+  if (error) return <div className="splash"><p>{error}</p></div>;
+  if (!ready) return <Splash />;
+  return <LevelTest />;
+}
+
 const router = createHashRouter([
   { path: '/welcome', element: <Welcome /> },
+  { path: '/level-test', element: <LevelRoute /> },
   {
     path: '/',
     element: <Gate />,
@@ -39,6 +49,8 @@ const router = createHashRouter([
           { path: 'words/:id', element: <WordDetail /> },
           { path: 'stats', element: <Stats /> },
           { path: 'talk', element: <Chat /> },
+          { path: 'grammar', element: <GrammarHome /> },
+          { path: 'grammar/:id', element: <GrammarLesson /> },
           { path: 'settings', element: <Settings /> },
           { path: 'about', element: <About /> },
         ],

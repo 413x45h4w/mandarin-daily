@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEXICON, SENTENCES } from '../data/content';
+import { GRAMMAR } from '../data/grammar';
 import { PASSAGES } from '../data/passages';
 import { buildIndex, inPool, segment } from './segment';
 import { isPunct } from './segment';
@@ -65,6 +66,28 @@ describe('daily session', () => {
       const word = index.byId.get(item.wordId);
       expect(word && inPool(word, 'classic', 1)).toBe(true);
     }
+  });
+
+  it('adds one grammar question at the learner level', () => {
+    const session = buildSession({
+      track: 'classic',
+      level: 1,
+      goal: 10,
+      words: LEXICON,
+      sentences: SENTENCES,
+      passages: PASSAGES,
+      cards: [],
+      grammar: GRAMMAR,
+      grammarDoneIds: [],
+      mode: 'daily',
+      now: Date.parse('2026-11-26T15:00:00Z'),
+      dayKey: '2026-11-26',
+    });
+    const grammar = session.filter((item) => item.kind === 'grammar');
+    expect(grammar).toHaveLength(1);
+    if (grammar[0]?.kind !== 'grammar') return;
+    const point = GRAMMAR.find((item) => item.id === grammar[0].pointId);
+    expect(point?.h).toBe(1);
   });
 
   it('returns no weak drill before any lapses', () => {

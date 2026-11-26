@@ -154,7 +154,7 @@ p { margin: 0; }
   gap: 2px;
   text-decoration: none;
   color: var(--ink-soft);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   min-width: 0;
   min-height: 44px;
   justify-content: center;
@@ -310,6 +310,11 @@ textarea { min-height: 88px; resize: vertical; }
 .choice.correct { border-color: var(--jade); background: color-mix(in srgb, var(--jade) 14%, var(--bg-elev)); }
 .choice.wrong { border-color: var(--accent); }
 .choice strong { font-size: 1.05rem; }
+.skill { display: grid; grid-template-columns: 108px 1fr 28px; gap: 10px; align-items: center; }
+.meter { display: block; height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--accent); }
+.grammar-link { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-decoration: none; color: inherit; }
+.grammar-link .hanzi { font-size: 1.35rem; }
 .han-choice { font-family: var(--han); font-size: 1.6rem; text-align: center; }
 .goals { display: grid; grid-template-columns: repeat(3, 1fr); }
 fieldset { border: 0; margin: 0; padding: 0; }

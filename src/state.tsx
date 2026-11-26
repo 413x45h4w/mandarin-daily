@@ -238,7 +238,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCustomWords([]);
     setChatState([]);
     setSettings((prev) => {
-      const next = { ...prev, seenPassageIds: [] };
+      const next = { ...prev, seenPassageIds: [], grammarProgress: {} };
       void saveSettings(next);
       settingsRef.current = next;
       return next;

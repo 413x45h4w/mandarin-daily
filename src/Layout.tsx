@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { BarChart3, BookOpen, House, MessageCircle, Settings } from 'lucide-react';
+import { BarChart3, BookOpen, House, Languages, MessageCircle, Settings } from 'lucide-react';
 import { useApp } from './state';
 import { todayKey } from './lib/dates';
 import { dayActive } from './lib/stats';
@@ -10,6 +10,7 @@ const TITLES: Record<string, string> = {
   '/words': 'Words',
   '/stats': 'Progress',
   '/talk': 'Conversation',
+  '/grammar': 'Grammar',
   '/settings': 'Settings',
   '/about': 'About',
 };
@@ -17,7 +18,7 @@ const TITLES: Record<string, string> = {
 export function Layout() {
   const { settings, days } = useApp();
   const { pathname } = useLocation();
-  const title = pathname.startsWith('/words/') ? 'Word' : TITLES[pathname] ?? 'Mandarin Daily';
+  const title = pathname.startsWith('/words/') ? 'Word' : pathname.startsWith('/grammar/') ? 'Grammar' : TITLES[pathname] ?? 'Mandarin Daily';
   const practiced = dayActive(days.get(todayKey()));
 
   useEffect(() => {
@@ -56,13 +57,14 @@ export function Layout() {
           <span className="seal" aria-hidden="true">文</span>
           <div>
             <strong>Mandarin Daily</strong>
-            <div className="muted tiny">HSK {settings.level}{settings.track === 'hsk3' ? ' · 3.0' : ''}</div>
+            <div className="muted tiny">{settings.track === 'hsk3' ? `Band ${settings.level}` : `HSK ${settings.level}`}</div>
           </div>
         </div>
         <NavLink to="/" end><House aria-hidden="true" size={18} /> Today</NavLink>
         <NavLink to="/words"><BookOpen aria-hidden="true" size={18} /> Words</NavLink>
         <NavLink to="/stats"><BarChart3 aria-hidden="true" size={18} /> Progress</NavLink>
         <NavLink to="/talk"><MessageCircle aria-hidden="true" size={18} /> Talk</NavLink>
+        <NavLink to="/grammar"><Languages aria-hidden="true" size={18} /> Grammar</NavLink>
         <NavLink to="/settings"><Settings aria-hidden="true" size={18} /> Settings</NavLink>
       </nav>
       <div className="main-col">

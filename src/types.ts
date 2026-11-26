@@ -60,6 +60,33 @@ export interface Settings {
   installHintDismissed: boolean;
   /** Passage ids the reader has already seen, oldest first. */
   seenPassageIds?: string[];
+  /** Newest first. */
+  placementHistory?: PlacementRecord[];
+  grammarProgress?: Record<string, GrammarProgress>;
+}
+
+export interface PlacementSkills {
+  vocab: number;
+  reading: number;
+  grammar: number;
+  listening: number;
+}
+
+export interface PlacementRecord {
+  id: string;
+  at: number;
+  track: Track;
+  level: number;
+  skills: PlacementSkills;
+  correct: number;
+  total: number;
+  applied: boolean;
+}
+
+export interface GrammarProgress {
+  correct: number;
+  total: number;
+  at: number;
 }
 
 export interface StoredCard {

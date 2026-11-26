@@ -8,6 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "test": "vitest run",
+    "audit-levels": "vitest run src/lib/level-audit.test.ts",
     "prepare-data": "node scripts/prepare-data.mjs"
   },
   "dependencies": {

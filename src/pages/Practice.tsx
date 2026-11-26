@@ -3,12 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Rating } from 'ts-fsrs';
 import { useApp } from '../state';
 import type { StoredCard, Word } from '../types';
+import { GRAMMAR } from '../data/grammar';
+import { grammarDoneIds } from './Grammar';
 import { rememberPassage } from '../lib/readings';
 import { buildSession, EXERCISE_LABEL, type Exercise } from '../lib/session';
 import { todayKey } from '../lib/dates';
 import {
   BuildDrill,
   DictateDrill,
+  GrammarDrill,
   FlashDrill,
   ListenDrill,
   ReadDrill,
@@ -48,6 +51,8 @@ function PracticeRun({
         cards: [...app.cards.values()],
         seenPassageIds: app.settings.seenPassageIds ?? [],
         focusWords: learningForms([...app.cards.values()], app.index.byId),
+        grammar: GRAMMAR,
+        grammarDoneIds: grammarDoneIds(app.settings.grammarProgress),
         mode,
         now: Date.now(),
         dayKey: `${todayKey()}#${round}`,
@@ -105,6 +110,19 @@ function PracticeRun({
     if (exercise.kind === 'read') {
       app.updateSettings({ seenPassageIds: rememberPassage(app.settings.seenPassageIds, exercise.passageId) });
     }
+    if (exercise.kind === 'grammar') {
+      const prev = app.settings.grammarProgress?.[exercise.pointId] ?? { correct: 0, total: 0, at: 0 };
+      app.updateSettings({
+        grammarProgress: {
+          ...app.settings.grammarProgress,
+          [exercise.pointId]: {
+            correct: prev.correct + (result.correct ? 1 : 0),
+            total: prev.total + 1,
+            at: Date.now(),
+          },
+        },
+      });
+    }
     if (result.wordId && result.rating) {
       const key = `${result.wordId}:${result.source}`;
       const hadFlash = touched.current.has(`${result.wordId}:flash`);
@@ -152,6 +170,11 @@ function DrillView({ exercise, onDone }: { exercise: Exercise; onDone: (result: 
     if (!sentence) return <Missing onDone={() => onDone({ kind: exercise.kind, correct: false, source: 'objective' })} />;
     if (exercise.kind === 'listen') return <ListenDrill exercise={exercise} sentence={sentence} onDone={onDone} />;
     return <BuildDrill exercise={exercise} sentence={sentence} onDone={onDone} />;
+  }
+  if (exercise.kind === 'grammar') {
+    const point = GRAMMAR.find((item) => item.id === exercise.pointId);
+    if (!point) return <Missing onDone={() => onDone({ kind: 'grammar', correct: false, source: 'objective' })} />;
+    return <GrammarDrill point={point} quizIndex={exercise.quizIndex} onDone={onDone} />;
   }
   const passage = passages.find((item) => item.id === exercise.passageId);
   if (!passage) return <Missing onDone={() => onDone({ kind: 'read', correct: false, source: 'objective' })} />;

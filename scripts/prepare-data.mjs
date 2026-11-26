@@ -253,8 +253,12 @@ for (const entry of hsk) {
       .slice(0, 3)
       .join('; ')
       .slice(0, 220);
-    const meaning = fromCedict?.m || hskMeaning;
-    if (!meaning || !studyableMeaning(meaning) || vulgarOnly(meaning)) return;
+    // CEDICT often glosses an official HSK form as only "variant of …".
+    // Keep the HSK gloss so those headwords stay on the list.
+    let meaning = '';
+    if (fromCedict?.m && studyableMeaning(fromCedict.m) && !vulgarOnly(fromCedict.m)) meaning = fromCedict.m;
+    else if (hskMeaning && !vulgarOnly(hskMeaning)) meaning = hskMeaning;
+    if (!meaning) return;
     const id = `${simp}~${numeric.replace(/\s+/g, '_')}`;
     addWord({
       id,
@@ -594,16 +598,24 @@ const lexiconOut = words.map(({ pref, ...w }) => ({ ...w, m: tidyMeaning(w.m) })
 writeFileSync(resolve(outDir, 'lexicon.json'), JSON.stringify(lexiconOut));
 writeFileSync(resolve(outDir, 'sentences.json'), JSON.stringify(sentences));
 
+const preferred = lexiconOut.filter((w) => !w.alt);
 const meta = {
   generated: new Date().toISOString().slice(0, 10),
   words: lexiconOut.length,
+  preferred: preferred.length,
   sentences: sentences.length,
   originalKept,
   classic: Object.fromEntries(
     [1, 2, 3, 4, 5, 6].map((n) => [n, lexiconOut.filter((w) => w.h === n).length]),
   ),
+  classicPreferred: Object.fromEntries(
+    [1, 2, 3, 4, 5, 6].map((n) => [n, preferred.filter((w) => w.h === n).length]),
+  ),
   hsk3: Object.fromEntries(
     [1, 2, 3, 4, 5, 6, 7].map((n) => [n, lexiconOut.filter((w) => w.b === n).length]),
+  ),
+  hsk3Preferred: Object.fromEntries(
+    [1, 2, 3, 4, 5, 6, 7].map((n) => [n, preferred.filter((w) => w.b === n).length]),
   ),
   sentenceLevels: Object.fromEntries(
     [1, 2, 3, 4, 5, 6].map((n) => [n, sentences.filter((s) => s.h === n).length]),

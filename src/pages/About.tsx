@@ -10,13 +10,13 @@ export function About() {
       <h2>Data and licenses</h2>
       <ul>
         <li>
-          <strong>HSK levels.</strong> Word lists for HSK 2.0 and HSK 3.0 come from <a href="https://github.com/drkameleon/complete-hsk-vocabulary">Complete HSK Vocabulary</a> by Yanis Zafirópulos, MIT. A few everyday phrases that are not separate headwords there (你好, 早上好) were added from CC-CEDICT.
+          <strong>HSK levels.</strong> Word lists for HSK 2.0 and HSK 3.0 come from <a href="https://github.com/drkameleon/complete-hsk-vocabulary">Complete HSK Vocabulary</a> by Yanis Zafirópulos, MIT. A few everyday phrases that are not separate headwords there (你好, 早上好) were added from CC-CEDICT. The source marks new-HSK bands 7–9 as one list; the level test splits that pool by frequency so it can name band 7, 8, or 9.
         </li>
         <li>
           <strong>Definitions.</strong> English glosses are from <a href="https://cc-cedict.org">CC-CEDICT</a>, licensed <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>. The bundled lexicon keeps that license. See <a href={`${import.meta.env.BASE_URL}licenses/CC-CEDICT.txt`}>the local notice</a>.
         </li>
         <li>
-          <strong>Sentences.</strong> Practice sentences are from the <a href="https://tatoeba.org">Tatoeba Project</a>, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>, via the curated cmn–eng extract at manythings.org/anki. Some traditional sentences were converted to simplified, and the set was filtered for length and level. Reading passages and a few starter sentences were written for this app and released under the same CC BY 2.0 terms. The graded readings are original (diaries, dialogues, messages, notices, news briefs, emails, and short opinions), not copied from textbooks. A Fresh story, when Ollama is running, is generated on your computer and is not part of that bundled text.
+          <strong>Sentences.</strong> Practice sentences are from the <a href="https://tatoeba.org">Tatoeba Project</a>, <a href="https://creativecommons.org/licenses/by/2.0/">CC BY 2.0</a>, via the curated cmn–eng extract at manythings.org/anki. Some traditional sentences were converted to simplified, and the set was filtered for length and level. Reading passages and a few starter sentences were written for this app and released under the same CC BY 2.0 terms. The graded readings and the grammar lessons are original, not copied from textbooks. Grammar explanations are written in Chinese for the level they teach. A Fresh story, when Ollama is running, is generated on your computer and is not part of that bundled text.
         </li>
         <li>
           <strong>Stroke order.</strong> Quizzes use <a href="https://github.com/chanind/hanzi-writer">hanzi-writer</a> (MIT). Graphics are from <a href="https://github.com/chanind/hanzi-writer-data">hanzi-writer-data</a> / Make Me a Hanzi, derived from fonts under the Arphic Public License. HSK 1–2 characters are bundled. Others download once from jsDelivr and the service worker caches them.
