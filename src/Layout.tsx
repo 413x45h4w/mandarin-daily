@@ -63,6 +63,7 @@ export function Layout() {
         <NavLink to="/words"><BookOpen aria-hidden="true" size={18} /> Words</NavLink>
         <NavLink to="/stats"><BarChart3 aria-hidden="true" size={18} /> Progress</NavLink>
         <NavLink to="/talk"><MessageCircle aria-hidden="true" size={18} /> Talk</NavLink>
+        <NavLink to="/settings"><Settings aria-hidden="true" size={18} /> Settings</NavLink>
       </nav>
       <div className="main-col">
         <header className="topbar">
