@@ -44,7 +44,7 @@ npm run preview
 
 ## Ollama
 
-The Talk tab is optional. In the terminal that starts Ollama, allow this site’s origin:
+The Talk tab is optional. Opening it preloads the model and keeps it loaded for 30 minutes (`keep_alive`). A cold load of a large model can take a minute or two; the tab waits up to 5 minutes and shows a loading state with Cancel, instead of treating that wait as a connection failure. In the terminal that starts Ollama, allow this site’s origin:
 
 ```bash
 OLLAMA_ORIGINS=https://413x45h4w.github.io ollama serve

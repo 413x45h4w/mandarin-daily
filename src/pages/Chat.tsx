@@ -1,31 +1,102 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useApp } from '../state';
 import { GlossaryText, PinyinLine } from '../components';
-import { noteIsEmpty, parseTutor, tutorSystemPrompt } from '../lib/tutor';
+import { liveTutorText, noteIsEmpty, parseTutor, tutorSystemPrompt } from '../lib/tutor';
+import {
+  CHAT_TIMEOUT_MS,
+  failureMessage,
+  listModels,
+  OllamaError,
+  streamChat,
+  warmModel,
+} from '../lib/ollama';
 import type { ChatMessage } from '../types';
 
+const LOADING = 'Loading the model on your PC, first reply can take a minute or two…';
+
 export function Chat() {
-  const { settings, chat, setChat } = useApp();
+  const { settings, updateSettings, chat, setChat } = useApp();
   const [draft, setDraft] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState<'idle' | 'warming' | 'waiting' | 'streaming'>('idle');
+  const [partial, setPartial] = useState('');
   const [error, setError] = useState('');
+  const [models, setModels] = useState<string[]>([]);
+  const inflight = useRef<AbortController | null>(null);
   const origin = typeof window === 'undefined' ? 'https://413x45h4w.github.io' : window.location.origin;
+
+  useEffect(() => {
+    const ctrl = new AbortController();
+    inflight.current = ctrl;
+    const timer = window.setTimeout(() => {
+      if (!ctrl.signal.aborted) ctrl.abort('timeout');
+    }, CHAT_TIMEOUT_MS);
+    let ignore = false;
+    setPhase('warming');
+    setError('');
+    void (async () => {
+      const names = await listModels(settings.ollamaUrl);
+      if (ignore) return;
+      setModels(names);
+      const result = await warmModel(settings.ollamaUrl, settings.ollamaModel, ctrl.signal);
+      if (ignore || result === 'aborted' || result === 'ok') return;
+      const message = failureMessage({
+        kind: result === 'missing' ? 'http' : result === 'timeout' ? 'timeout' : 'unreachable',
+        url: settings.ollamaUrl,
+        origin,
+        model: settings.ollamaModel,
+        status: result === 'missing' ? 404 : undefined,
+        models: names,
+      });
+      setError(message);
+    })().finally(() => {
+      window.clearTimeout(timer);
+      if (!ignore) setPhase((current) => (current === 'warming' ? 'idle' : current));
+    });
+    return () => {
+      ignore = true;
+      ctrl.abort();
+      window.clearTimeout(timer);
+    };
+  }, [settings.ollamaUrl, settings.ollamaModel, origin]);
+
+  function cancel() {
+    inflight.current?.abort();
+    setPhase('idle');
+    setPartial('');
+  }
 
   async function send(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || busy) return;
+    if (!text || phase === 'waiting' || phase === 'streaming') return;
+    inflight.current?.abort();
+    const ctrl = new AbortController();
+    inflight.current = ctrl;
     const user: ChatMessage = { id: crypto.randomUUID(), role: 'user', text, zh: '', py: '', en: '', note: '', at: Date.now() };
     const history = [...chat, user];
     setChat(history);
     setDraft('');
-    setBusy(true);
     setError('');
+    setPartial('');
+    setPhase('waiting');
     try {
-      const reply = await askOllama(settings.ollamaUrl, settings.ollamaModel, [
-        { role: 'system', content: tutorSystemPrompt(settings.track, settings.level) },
-        ...history.slice(-8).map((message) => ({ role: message.role === 'tutor' ? 'assistant' : 'user', content: message.text })),
-      ]);
+      const reply = await streamChat({
+        url: settings.ollamaUrl,
+        model: settings.ollamaModel,
+        origin,
+        messages: [
+          { role: 'system', content: tutorSystemPrompt(settings.track, settings.level) },
+          ...history.slice(-8).map((message) => ({
+            role: message.role === 'tutor' ? 'assistant' as const : 'user' as const,
+            content: message.text,
+          })),
+        ],
+        signal: ctrl.signal,
+        onDelta: (full) => {
+          setPhase('streaming');
+          setPartial(full);
+        },
+      });
       const parsed = parseTutor(reply);
       const tutor: ChatMessage = {
         id: crypto.randomUUID(),
@@ -39,31 +110,62 @@ export function Chat() {
       };
       setChat([...history, tutor]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ollama could not be reached.');
+      if (!(err instanceof OllamaError && err.kind === 'abort')) {
+        setError(err instanceof OllamaError ? err.message : 'Ollama could not answer.');
+      }
     } finally {
-      setBusy(false);
+      setPhase('idle');
+      setPartial('');
     }
   }
+
+  const loading = phase === 'warming' || phase === 'waiting';
+  const busy = phase === 'waiting' || phase === 'streaming';
+  const modelOptions = models.includes(settings.ollamaModel) || !settings.ollamaModel ? models : [settings.ollamaModel, ...models];
+  const live = liveTutorText(partial);
 
   return (
     <div className="stack chat">
       <h1>Conversation partner</h1>
-      <p className="muted">Optional. This talks to a local Ollama model. Everything else in the app works without it. Start Ollama with <code>OLLAMA_ORIGINS={origin}</code> so the browser is allowed to call {settings.ollamaUrl}.</p>
+      <p className="muted">
+        Optional. This talks to Ollama on your computer at {settings.ollamaUrl}. The first reply can take a minute or two while a large model loads. Later turns keep it loaded for 30 minutes.
+      </p>
+      {modelOptions.length > 0 && (
+        <label className="field">
+          Model
+          <select value={settings.ollamaModel} onChange={(event) => updateSettings({ ollamaModel: event.target.value })}>
+            {modelOptions.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="thread">
-        {chat.length === 0 && <p className="muted">Say hi in Chinese or English. Replies show characters first. Tap a message for pinyin and English.</p>}
+        {chat.length === 0 && !live && <p className="muted">Say hi in Chinese or English. Replies show characters first. Tap a message for pinyin and English.</p>}
         {chat.map((message) => (
           <ChatBubble key={message.id} message={message} />
         ))}
+        {live && <p className="bubble tutor" lang="zh-CN">{live}</p>}
       </div>
+      {loading && (
+        <div className="banner" role="status">
+          <p>{LOADING}</p>
+        </div>
+      )}
       {error && (
         <div className="banner" role="alert">
-          <p>Can’t reach Ollama at {settings.ollamaUrl}. Is it running, and does OLLAMA_ORIGINS include {origin}? {error}</p>
+          <p>{error}</p>
         </div>
       )}
       <form className="composer" onSubmit={(event) => void send(event)}>
         <label className="sr-only" htmlFor="chat-input">Message</label>
-        <textarea id="chat-input" rows={3} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="试着用中文说说今天。" />
-        <button type="submit" className="btn btn-primary" disabled={busy || !draft.trim()}>{busy ? 'Thinking…' : 'Send'}</button>
+        <textarea id="chat-input" rows={3} value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="试着用中文说说今天。" disabled={busy} />
+        <div className="row">
+          <button type="submit" className="btn btn-primary" disabled={busy || !draft.trim()}>{busy ? 'Waiting…' : 'Send'}</button>
+          {phase !== 'idle' && (
+            <button type="button" className="btn" onClick={cancel}>Cancel</button>
+          )}
+        </div>
       </form>
       {chat.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => setChat([])}>Clear chat</button>}
     </div>
@@ -85,39 +187,10 @@ function ChatBubble({ message }: { message: ChatMessage }) {
         <div className="stack">
           {message.py && <PinyinLine pinyin={message.py} />}
           {message.en && <p>{message.en}</p>}
-          {!message.py && !message.en && <p className="muted">The model did not split out pinyin and English. Raw reply: {message.text}</p>}
+          {!message.py && !message.en && <p className="muted">The model did not split out pinyin and English.</p>}
           {!noteIsEmpty(message.note) && <p className="note">Note: {message.note}</p>}
         </div>
       )}
     </div>
   );
-}
-
-async function askOllama(url: string, model: string, messages: { role: string; content: string }[]): Promise<string> {
-  const base = url.replace(/\/$/, '');
-  const ctrl = new AbortController();
-  const timer = window.setTimeout(() => ctrl.abort(), 45000);
-  try {
-    let res: Response;
-    try {
-      res = await fetch(`${base}/api/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, stream: false }),
-        signal: ctrl.signal,
-      });
-    } catch {
-      throw new Error('The request failed before Ollama answered. Check that it is running and that this origin is listed in OLLAMA_ORIGINS.');
-    }
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 180);
-      throw new Error(detail || `Ollama returned HTTP ${res.status}.`);
-    }
-    const data = (await res.json()) as { message?: { content?: string } };
-    const content = data.message?.content?.trim();
-    if (!content) throw new Error('The model returned an empty reply.');
-    return content;
-  } finally {
-    window.clearTimeout(timer);
-  }
 }

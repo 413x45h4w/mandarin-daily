@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { noteIsEmpty, parseTutor, stripThink } from './tutor';
+import { liveTutorText, noteIsEmpty, parseTutor, stripThink } from './tutor';
 
 describe('tutor replies', () => {
   it('parses the labeled format and ignores hidden thinking', () => {
@@ -13,6 +13,12 @@ NOTE: none`;
     expect(parsed.zh).toContain('你好');
     expect(parsed.en).toContain('how are you');
     expect(noteIsEmpty(parsed.note)).toBe(true);
+  });
+
+  it('shows Chinese as it streams and hides an unfinished think block', () => {
+    expect(liveTutorText('<think>still going')).toBe('');
+    expect(liveTutorText('<think>draft</think>\nZH: 你好')).toBe('你好');
+    expect(liveTutorText('你好')).toBe('你好');
   });
 
   it('keeps an unlabeled reply as Chinese text', () => {

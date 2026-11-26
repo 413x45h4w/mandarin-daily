@@ -55,6 +55,16 @@ export function parseTutor(raw: string): TutorReply {
   return { zh, py, en, note };
 }
 
+/** Text to show while a reply is still streaming. Hides thinking blocks and prefers the ZH line. */
+export function liveTutorText(raw: string): string {
+  let text = raw.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const open = text.search(/<think>/i);
+  if (open >= 0) text = text.slice(0, open);
+  const match = text.match(/(?:^|\n)\s*ZH\s*[:：]\s*([\s\S]*?)(?=\n\s*(?:PY|EN|NOTE)\s*[:：]|$)/i);
+  if (match) return match[1].trim();
+  return text.trim();
+}
+
 export function noteIsEmpty(note: string): boolean {
   return !note || /^(none|n\/a|no|无|没有)\.?$/i.test(note.trim());
 }
