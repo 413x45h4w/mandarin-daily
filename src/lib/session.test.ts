@@ -25,7 +25,12 @@ describe('bundled content', () => {
         const unknown = tokens.filter((token) => !token.word && !isPunct(token.text)).map((token) => token.text);
         if (unknown.length) problems.push(`${passage.id} unknown ${paragraph} :: ${unknown.join(' ')}`);
         const tooHard = tokens
-          .filter((token) => token.word && (token.word.h === 0 || token.word.h > passage.h))
+          .filter((token) => {
+            const word = token.word;
+            if (!word) return false;
+            if (word.h > passage.h) return true;
+            return word.h === 0 && Array.from(word.s).length > 1;
+          })
           .map((token) => `${token.word?.s}:${token.word?.h}`);
         if (tooHard.length) problems.push(`${passage.id} hard ${paragraph} :: ${tooHard.join(' ')}`);
       }

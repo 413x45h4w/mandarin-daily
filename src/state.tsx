@@ -237,6 +237,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setDays(new Map());
     setCustomWords([]);
     setChatState([]);
+    setSettings((prev) => {
+      const next = { ...prev, seenPassageIds: [] };
+      void saveSettings(next);
+      settingsRef.current = next;
+      return next;
+    });
   }, []);
 
   const value: AppValue = {

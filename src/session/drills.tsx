@@ -5,6 +5,8 @@ import { toneNumbers } from '../lib/session';
 import { hashString, pinyinMatches, similarity } from '../lib/pinyin';
 import { displayHanzi, levelBadges } from '../lib/segment';
 import { canRecognizeSpeech, speak, speechRecognitionCtor, stopSpeaking } from '../lib/speech';
+import { probeOllama } from '../lib/ollama';
+import { generateFreshPassage } from '../lib/readings';
 import { loadCharData } from '../lib/strokes';
 import type { Passage, Sentence, Word } from '../types';
 import { useApp } from '../state';
@@ -679,17 +681,58 @@ export function WriteDrill({ word, char, onDone }: { word: Word; char: string; o
 }
 
 export function ReadDrill({ passage, onDone }: { passage: Passage; onDone: (result: DrillResult) => void }) {
+  const { settings, cards, index } = useApp();
+  const [current, setCurrent] = useState(passage);
   const [answers, setAnswers] = useState<number[]>(() => passage.questions.map(() => -1));
   const [checked, setChecked] = useState(false);
-  const correct = passage.questions.every((question, i) => answers[i] === question.answer);
+  const [canFresh, setCanFresh] = useState(false);
+  const [making, setMaking] = useState(false);
+  const correct = current.questions.every((question, i) => answers[i] === question.answer);
+
+  useEffect(() => {
+    let cancel = false;
+    void probeOllama(settings.ollamaUrl).then((ok) => {
+      if (!cancel) setCanFresh(ok);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [settings.ollamaUrl]);
+
+  async function fresh() {
+    setMaking(true);
+    const words = [...cards.values()]
+      .sort((a, b) => b.lapses - a.lapses || a.due - b.due)
+      .map((card) => index.byId.get(card.wordId)?.s)
+      .filter((word): word is string => !!word)
+      .slice(0, 12);
+    const made = await generateFreshPassage({
+      url: settings.ollamaUrl,
+      model: settings.ollamaModel,
+      level: settings.level,
+      words,
+    });
+    if (made) {
+      setCurrent(made);
+      setAnswers(made.questions.map(() => -1));
+      setChecked(false);
+    }
+    setMaking(false);
+  }
+
   return (
     <article className="drill reading">
-      <p className="eyebrow">Short reading</p>
-      <h2>{passage.title}</h2>
-      {passage.paragraphs.map((paragraph) => (
+      <p className="eyebrow">{current.format ?? 'Short reading'}</p>
+      <h2>{current.title}</h2>
+      {canFresh && !checked && (
+        <button type="button" className="btn btn-ghost" onClick={() => void fresh()} disabled={making}>
+          {making ? 'Writing…' : 'Fresh story'}
+        </button>
+      )}
+      {current.paragraphs.map((paragraph) => (
         <GlossaryText key={paragraph} text={paragraph} />
       ))}
-      {passage.questions.map((question, qi) => (
+      {current.questions.map((question, qi) => (
         <fieldset key={question.prompt} className="quiz-q" disabled={checked}>
           <legend>{question.prompt}</legend>
           {question.options.map((option, oi) => {

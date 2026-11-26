@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Rating } from 'ts-fsrs';
 import { useApp } from '../state';
+import type { StoredCard, Word } from '../types';
+import { rememberPassage } from '../lib/readings';
 import { buildSession, EXERCISE_LABEL, type Exercise } from '../lib/session';
 import { todayKey } from '../lib/dates';
 import {
@@ -44,6 +46,8 @@ function PracticeRun({
         sentences: app.sentences,
         passages: app.passages,
         cards: [...app.cards.values()],
+        seenPassageIds: app.settings.seenPassageIds ?? [],
+        focusWords: learningForms([...app.cards.values()], app.index.byId),
         mode,
         now: Date.now(),
         dayKey: `${todayKey()}#${round}`,
@@ -98,6 +102,9 @@ function PracticeRun({
 
   const exercise = queue[index];
   function finish(result: DrillResult) {
+    if (exercise.kind === 'read') {
+      app.updateSettings({ seenPassageIds: rememberPassage(app.settings.seenPassageIds, exercise.passageId) });
+    }
     if (result.wordId && result.rating) {
       const key = `${result.wordId}:${result.source}`;
       const hadFlash = touched.current.has(`${result.wordId}:flash`);
@@ -149,6 +156,18 @@ function DrillView({ exercise, onDone }: { exercise: Exercise; onDone: (result: 
   const passage = passages.find((item) => item.id === exercise.passageId);
   if (!passage) return <Missing onDone={() => onDone({ kind: 'read', correct: false, source: 'objective' })} />;
   return <ReadDrill passage={passage} onDone={onDone} />;
+}
+
+function learningForms(cards: StoredCard[], byId: Map<string, Word>): string[] {
+  const forms: string[] = [];
+  const ranked = [...cards].sort((a, b) => b.lapses - a.lapses || a.due - b.due || a.stability - b.stability);
+  for (const card of ranked) {
+    const word = byId.get(card.wordId)?.s;
+    if (!word || forms.includes(word)) continue;
+    forms.push(word);
+    if (forms.length >= 24) break;
+  }
+  return forms;
 }
 
 function Missing({ onDone }: { onDone: () => void }) {

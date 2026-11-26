@@ -1,5 +1,6 @@
 import type { Passage, Sentence, StoredCard, Track, Word } from '../types';
 import { hashString } from './pinyin';
+import { choosePassage } from './readings';
 import { inPool } from './segment';
 import { isDue } from './srs';
 
@@ -25,6 +26,8 @@ export interface SessionInput {
   mode: 'daily' | 'weak';
   now: number;
   dayKey: string;
+  seenPassageIds?: string[];
+  focusWords?: string[];
 }
 
 const KIND_ORDER = ['tone', 'flash-en', 'listen', 'speak', 'build', 'write', 'dictate', 'tone-pair'] as const;
@@ -104,7 +107,11 @@ function buildDaily(input: SessionInput): Exercise[] {
     }
   }
 
-  const passage = pickPassage(input.passages, track, level, dayKey);
+  const passage = choosePassage(input.passages, track, level, {
+    seenIds: input.seenPassageIds ?? [],
+    focus: input.focusWords ?? [],
+    salt: dayKey,
+  });
   if (passage) push({ kind: 'read', passageId: passage.id });
   return exercises;
 }
@@ -209,12 +216,8 @@ function choiceList(pool: string[], correct: string, salt: string): { choices: s
   return { choices, answer };
 }
 
-export function pickPassage(passages: Passage[], track: Track, level: number, dayKey: string): Passage | null {
-  const fitting = passages.filter((passage) => (track === 'classic' ? passage.h <= level : passage.b <= level));
-  const atLevel = fitting.filter((passage) => (track === 'classic' ? passage.h === level : passage.b === Math.min(level, 6) || (level >= 7 && passage.b >= 6)));
-  const list = atLevel.length ? atLevel : fitting;
-  if (!list.length) return null;
-  return list[hashString(`${dayKey}|read|${level}`) % list.length];
+export function pickPassage(passages: Passage[], track: Track, level: number, dayKey: string, seenIds: string[] = [], focus: string[] = []): Passage | null {
+  return choosePassage(passages, track, level, { seenIds, focus, salt: dayKey });
 }
 
 export function toneNumbers(word: Word): number[] {

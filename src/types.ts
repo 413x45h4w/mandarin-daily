@@ -35,6 +35,8 @@ export interface Passage {
   id: string;
   h: number;
   b: number;
+  /** Short label such as diary, dialogue, news. */
+  format?: string;
   title: string;
   paragraphs: string[];
   questions: { prompt: string; options: string[]; answer: number }[];
@@ -56,6 +58,8 @@ export interface Settings {
   ollamaModel: string;
   voiceHintDismissed: boolean;
   installHintDismissed: boolean;
+  /** Passage ids the reader has already seen, oldest first. */
+  seenPassageIds?: string[];
 }
 
 export interface StoredCard {
