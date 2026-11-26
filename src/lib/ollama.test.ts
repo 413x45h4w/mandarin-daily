@@ -51,7 +51,9 @@ describe('thinking fallback', () => {
     });
     const seen: string[] = [];
     const full = await readChatStream(body, (text) => seen.push(text));
-    expect(full).toBe('ZH: 你好');
+    expect(full.reply).toBe('ZH: 你好');
+    expect(full.content).toBe('');
+    expect(full.thinking).toBe('ZH: 你好');
     expect(seen).toEqual(['ZH: 你', 'ZH: 你好']);
   });
 });
@@ -71,7 +73,7 @@ describe('chat stream', () => {
     });
     const seen: string[] = [];
     const full = await readChatStream(body, (text) => seen.push(text));
-    expect(full).toBe('ZH: 你好！');
+    expect(full.reply).toBe('ZH: 你好！');
     expect(seen).toEqual(['ZH: 你', 'ZH: 你好', 'ZH: 你好！']);
   });
 });

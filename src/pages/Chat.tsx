@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useApp } from '../state';
 import { GlossaryText, PinyinLine } from '../components';
-import { liveTutorText, noteIsEmpty, parseTutor, tutorSystemPrompt } from '../lib/tutor';
+import { buildChatMessages, freshReply, liveTutorText, noteIsEmpty, parseTutor, repliesTooSimilar, tutorSystemPrompt, withRepeatNudge } from '../lib/tutor';
 import {
   CHAT_TIMEOUT_MS,
   failureMessage,
@@ -80,23 +80,34 @@ export function Chat() {
     setPartial('');
     setPhase('waiting');
     try {
-      const reply = await streamChat({
-        url: settings.ollamaUrl,
-        model: settings.ollamaModel,
-        origin,
-        messages: [
-          { role: 'system', content: tutorSystemPrompt(settings.track, settings.level) },
-          ...history.slice(-8).map((message) => ({
-            role: message.role === 'tutor' ? 'assistant' as const : 'user' as const,
-            content: message.text,
-          })),
-        ],
-        signal: ctrl.signal,
-        onDelta: (full) => {
-          setPhase('streaming');
-          setPartial(full);
-        },
+      const thread = buildChatMessages({
+        system: tutorSystemPrompt(settings.track, settings.level),
+        history,
       });
+      const previous = [...history].reverse().find((message) => message.role === 'tutor');
+      const ask = (messages: typeof thread, temperature: number) =>
+        streamChat({
+          url: settings.ollamaUrl,
+          model: settings.ollamaModel,
+          origin,
+          messages,
+          temperature,
+          signal: ctrl.signal,
+          onDelta: (full) => {
+            setPhase('streaming');
+            setPartial(full);
+          },
+        });
+      const spoken = (value: string) => parseTutor(value).zh || value;
+      const previousSpoken = previous ? previous.zh || previous.text : '';
+      let result = await ask(thread, 0.7);
+      let reply = freshReply(result.content, result.thinking, previousSpoken);
+      if (previousSpoken && repliesTooSimilar(spoken(reply), previousSpoken)) {
+        setPartial('');
+        setPhase('waiting');
+        result = await ask(withRepeatNudge(thread), 1);
+        reply = freshReply(result.content, result.thinking, previousSpoken);
+      }
       const parsed = parseTutor(reply);
       const tutor: ChatMessage = {
         id: crypto.randomUUID(),
@@ -194,6 +205,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="bubble tutor">
       <GlossaryText text={message.zh || message.text} showPinyin={false} />
+      {!noteIsEmpty(message.note) && <p className="note">{message.note}</p>}
       <button type="button" className="btn btn-ghost" onClick={() => setOpen((value) => !value)}>
         {open ? 'Hide pinyin and English' : 'Pinyin and English'}
       </button>
@@ -202,7 +214,6 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           {message.py && <PinyinLine pinyin={message.py} />}
           {message.en && <p>{message.en}</p>}
           {!message.py && !message.en && <p className="muted">The model did not split out pinyin and English.</p>}
-          {!noteIsEmpty(message.note) && <p className="note">Note: {message.note}</p>}
         </div>
       )}
     </div>

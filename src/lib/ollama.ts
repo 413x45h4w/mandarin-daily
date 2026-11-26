@@ -68,7 +68,13 @@ export function chooseReply(content: string, thinking: string): string {
   return stripThink(body).trim();
 }
 
-export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: (full: string) => void): Promise<string> {
+export interface ChatRead {
+  reply: string;
+  content: string;
+  thinking: string;
+}
+
+export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: (full: string) => void): Promise<ChatRead> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -99,7 +105,7 @@ export async function readChatStream(body: ReadableStream<Uint8Array>, onDelta: 
   }
   buffer += decoder.decode();
   if (buffer.trim()) take(buffer);
-  return chooseReply(content, thinking);
+  return { reply: chooseReply(content, thinking), content, thinking };
 }
 
 async function withTimeout<T>(work: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
@@ -162,7 +168,8 @@ export async function streamChat(options: {
   signal: AbortSignal;
   timeoutMs?: number;
   onDelta?: (full: string) => void;
-}): Promise<string> {
+  temperature?: number;
+}): Promise<ChatRead> {
   const { url, model, origin, messages, signal, onDelta } = options;
   const timeoutMs = options.timeoutMs ?? CHAT_TIMEOUT_MS;
   const ctrl = new AbortController();
@@ -179,7 +186,14 @@ export async function streamChat(options: {
       res = await fetch(`${base}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, stream: true, keep_alive: KEEP_ALIVE, think: false }),
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          keep_alive: KEEP_ALIVE,
+          think: false,
+          options: { temperature: options.temperature ?? 0.7 },
+        }),
         signal: ctrl.signal,
       });
     } catch (err) {
@@ -198,14 +212,16 @@ export async function streamChat(options: {
     }
     if (!res.body) {
       const data = (await res.json()) as ChatChunk;
-      const content = chooseReply(data.message?.content ?? '', data.message?.thinking ?? data.thinking ?? '');
-      if (!content) throw new OllamaError('empty', failureMessage({ kind: 'empty', url: base, origin, model }));
-      onDelta?.(content);
-      return content;
+      const content = data.message?.content ?? '';
+      const thinking = data.message?.thinking ?? data.thinking ?? '';
+      const reply = chooseReply(content, thinking);
+      if (!reply) throw new OllamaError('empty', failureMessage({ kind: 'empty', url: base, origin, model }));
+      onDelta?.(reply);
+      return { reply, content, thinking };
     }
-    let content = '';
+    let read: ChatRead;
     try {
-      content = await readChatStream(res.body, (full) => onDelta?.(full));
+      read = await readChatStream(res.body, (full) => onDelta?.(full));
     } catch (err) {
       if (isAbortError(err)) {
         const kind = ctrl.signal.reason === 'timeout' ? 'timeout' : 'abort';
@@ -214,8 +230,8 @@ export async function streamChat(options: {
       const detail = err instanceof Error ? err.message : '';
       throw new OllamaError('http', failureMessage({ kind: 'http', url: base, origin, model, detail }));
     }
-    if (!content) throw new OllamaError('empty', failureMessage({ kind: 'empty', url: base, origin, model }));
-    return content;
+    if (!read.reply) throw new OllamaError('empty', failureMessage({ kind: 'empty', url: base, origin, model }));
+    return read;
   } finally {
     clearTimeout(timer);
     signal.removeEventListener('abort', onParentAbort);
