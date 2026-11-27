@@ -377,7 +377,7 @@ legend { font-weight: 650; margin-bottom: 8px; }
 .heat i[data-lv="3"] { background: var(--heat3); }
 .heat i[data-lv="4"] { background: var(--heat4); }
 
-.glossary-text { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 0; font-size: 1.35rem; }
+.glossary-text { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 2px 0; font-family: var(--han); font-size: 1.35rem; }
 .gloss {
   border: 0;
   background: transparent;

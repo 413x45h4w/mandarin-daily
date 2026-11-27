@@ -11,7 +11,7 @@ import { loadCharData } from '../lib/strokes';
 import type { GrammarPoint } from '../data/grammar';
 import type { Passage, Sentence, Word } from '../types';
 import { useApp } from '../state';
-import { GlossaryText, PinyinLine, SpeakButton } from '../components';
+import { GlossaryText, PinyinLine, RubyText, SpeakButton } from '../components';
 import HanziWriter from 'hanzi-writer';
 
 export interface DrillResult {
@@ -724,7 +724,7 @@ export function ReadDrill({ passage, onDone }: { passage: Passage; onDone: (resu
   return (
     <article className="drill reading">
       <p className="eyebrow">{current.format ?? 'Short reading'}</p>
-      <h2>{current.title}</h2>
+      <h2><RubyText text={current.title} /></h2>
       {canFresh && !checked && (
         <button type="button" className="btn btn-ghost" onClick={() => void fresh()} disabled={making}>
           {making ? 'Writing…' : 'Fresh story'}
@@ -780,13 +780,13 @@ export function GrammarDrill({ point, quizIndex, onDone }: { point: GrammarPoint
   return (
     <div className="drill stack">
       <p className="eyebrow">Grammar · {point.title}</p>
-      <h1 className="hanzi" lang="zh-CN">{quiz.prompt}</h1>
+      <RubyText text={quiz.prompt} />
       <div className="stack">
         {quiz.options.map((option, index) => {
           const state = picked == null ? '' : index === quiz.answer ? 'correct' : index === picked ? 'wrong' : '';
           return (
             <button key={option} type="button" className={`choice ${state}`} disabled={picked != null} onClick={() => setPicked(index)}>
-              <span lang="zh-CN">{option}</span>
+              <RubyText text={option} />
             </button>
           );
         })}

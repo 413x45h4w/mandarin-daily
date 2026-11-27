@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { GRAMMAR, grammarFor, grammarLevel } from '../data/grammar';
-import { GlossaryText, SpeakButton } from '../components';
+import { GlossaryText, RubyText, SpeakButton } from '../components';
 import { useApp } from '../state';
 import type { Track } from '../types';
 
@@ -29,7 +29,7 @@ export function GrammarHome() {
           const score = progress[point.id];
           return (
             <Link key={point.id} className="card grammar-link" to={`/grammar/${point.id}`}>
-              <span className="hanzi" lang="zh-CN">{point.title}</span>
+              <RubyText text={point.title} />
               <span className="muted">{score ? `${score.correct}/${score.total}` : 'Not yet'}</span>
             </Link>
           );
@@ -86,7 +86,7 @@ export function GrammarLesson() {
         </button>
       </div>
       <div className="row spread">
-        <h1 className="hanzi" lang="zh-CN">{lesson.title}</h1>
+        <h1><RubyText text={lesson.title} /></h1>
         <SpeakButton text={lesson.explain} label="Play the explanation" />
       </div>
       <GlossaryText text={lesson.explain} showPinyin={showPinyin} />
@@ -104,13 +104,13 @@ export function GrammarLesson() {
       <h2>Practice</h2>
       {lesson.quiz.map((quiz, quizIndex) => (
         <fieldset key={quiz.prompt} className="card stack">
-          <legend className="hanzi" lang="zh-CN">{quiz.prompt}</legend>
+          <legend><RubyText text={quiz.prompt} /></legend>
           {quiz.options.map((option, optionIndex) => {
             const choice = picked[quizIndex];
             const state = choice == null ? '' : optionIndex === quiz.answer ? 'correct' : optionIndex === choice ? 'wrong' : '';
             return (
               <button key={option} type="button" className={`choice ${state}`} disabled={choice != null} onClick={() => choose(quizIndex, optionIndex)}>
-                <span lang="zh-CN">{option}</span>
+                <RubyText text={option} />
               </button>
             );
           })}

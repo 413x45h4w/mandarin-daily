@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { Volume2 } from 'lucide-react';
 import type { Word } from './types';
 import { useApp } from './state';
-import { displayHanzi, levelBadges, posLabel, segment, type LexiconIndex } from './lib/segment';
+import { annotate, type RubyToken } from './lib/ruby';
+import { displayHanzi, levelBadges, posLabel, type LexiconIndex } from './lib/segment';
 import { speak } from './lib/speech';
 import { splitPinyin, toneClass } from './lib/pinyin';
 
@@ -48,32 +49,13 @@ export function HanziBlock({ word, size = 'xl' }: { word: Word; size?: 'xl' | 'l
 
 export function GlossaryText({ text, showPinyin }: { text: string; showPinyin?: boolean }) {
   const { settings, index, addToDeck, cards } = useApp();
-  const tokens = useMemo(() => segment(text, index), [text, index]);
+  const tokens = useMemo(() => annotate(text, index), [text, index]);
   const [open, setOpen] = useState<number | null>(null);
   const pinyinOn = showPinyin ?? settings.showPinyin;
   const active = open == null ? null : tokens[open];
   return (
     <div className="glossary">
-      <div className="glossary-text" lang={settings.traditional ? 'zh-TW' : 'zh-CN'}>
-        {tokens.map((token, i) => {
-          if (!token.word) {
-            return <span key={i}>{token.text}</span>;
-          }
-          const chars = displayHanzi(token.word, settings.traditional);
-          return (
-            <button
-              key={i}
-              type="button"
-              className="gloss"
-              onClick={() => setOpen(i)}
-              aria-label={`${chars}, ${token.word.p}`}
-            >
-              {pinyinOn && <span className="gloss-py">{colored(token.word.p, settings.toneColors)}</span>}
-              <span className="gloss-zh">{chars}</span>
-            </button>
-          );
-        })}
-      </div>
+      <RubyRow tokens={tokens} pinyinOn={pinyinOn} toneColors={settings.toneColors} traditional={settings.traditional} onOpen={setOpen} />
       {active?.word && (
         <div className="sheet-back" role="presentation" onClick={() => setOpen(null)}>
           <div className="sheet" role="dialog" aria-label="Word" onClick={(event) => event.stopPropagation()}>
@@ -99,6 +81,63 @@ export function GlossaryText({ text, showPinyin }: { text: string; showPinyin?: 
           </div>
         </div>
       )}
+      {active && !active.word && active.pinyin && (
+        <div className="sheet-back" role="presentation" onClick={() => setOpen(null)}>
+          <div className="sheet" role="dialog" aria-label="Character" onClick={(event) => event.stopPropagation()}>
+            <div className="hanzi lg" lang="zh-CN">{active.text}</div>
+            <PinyinLine pinyin={active.pinyin} />
+            <p className="muted">Character reading. It is not a separate HSK headword.</p>
+            <div className="row">
+              <SpeakButton text={active.text} />
+              <button type="button" className="btn btn-ghost" onClick={() => setOpen(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Pinyin above every character, without buttons, so it can sit inside another control. */
+export function RubyText({ text, showPinyin }: { text: string; showPinyin?: boolean }) {
+  const { settings, index } = useApp();
+  const tokens = useMemo(() => annotate(text, index), [text, index]);
+  const pinyinOn = showPinyin ?? settings.showPinyin;
+  return <RubyRow tokens={tokens} pinyinOn={pinyinOn} toneColors={settings.toneColors} traditional={settings.traditional} />;
+}
+
+function RubyRow({
+  tokens,
+  pinyinOn,
+  toneColors,
+  traditional,
+  onOpen,
+}: {
+  tokens: RubyToken[];
+  pinyinOn: boolean;
+  toneColors: boolean;
+  traditional: boolean;
+  onOpen?: (index: number) => void;
+}) {
+  return (
+    <div className="glossary-text" lang={traditional ? 'zh-TW' : 'zh-CN'}>
+      {tokens.map((token, i) => {
+        const han = /[\u3400-\u9fff]/.test(token.text);
+        if (!han) return <span key={i}>{token.text}</span>;
+        const chars = token.word ? displayHanzi(token.word, traditional) : token.text;
+        const body = (
+          <>
+            {pinyinOn && token.pinyin ? <span className="gloss-py">{colored(token.pinyin, toneColors)}</span> : null}
+            <span className="gloss-zh">{chars}</span>
+          </>
+        );
+        if (!onOpen) return <span key={i} className="gloss">{body}</span>;
+        return (
+          <button key={i} type="button" className="gloss" onClick={() => onOpen(i)} aria-label={token.pinyin ? `${chars}, ${token.pinyin}` : chars}>
+            {body}
+          </button>
+        );
+      })}
     </div>
   );
 }
